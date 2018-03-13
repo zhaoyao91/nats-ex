@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+
+const {connect, NatsEx, NatsExError, Protocol} = require('nats-ex')
+const repl = require('repl')
+const colors = require('colors')
+const util = require('util')
+const loadReplHistory = require('repl.history')
+const path = require('path')
+const args = require('node-args')
+const pick = require('lodash.pick')
+
+function errorHandler (err) {
+  console.error(err)
+  process.exit(1)
+}
+
+function startRepl (extraContext) {
+  const server = repl.start({
+    prompt: '> '
+  })
+  Object.assign(server.context, defaultContext, extraContext)
+  loadReplHistory(server, path.resolve(process.env.HOME, '.node_history'))
+}
+
+function print (methodPromise) {
+  const {requestId} = methodPromise
+  methodPromise.then(result => {
+    console.log(`response: ${requestId}`.cyan)
+    console.log(util.inspect(result).cyan)
+  }).catch(err => {
+    console.error(`error: ${requestId}`.red)
+    console.error(util.inspect(err).red)
+  })
+  return requestId
+}
+
+const defaultContext = {
+  connect,
+  NatsEx,
+  NatsExError,
+  Protocol,
+  print,
+}
+
+if (args.url) {
+  const options = {
+    reconnect: true,
+    ...pick(args, 'url', 'reconnect', 'queueGroup', 'logEvents')
+  }
+  connect(options).then(natsEx => startRepl({natsEx})).catch(errorHandler)
+}
+else {
+  startRepl()
+}
