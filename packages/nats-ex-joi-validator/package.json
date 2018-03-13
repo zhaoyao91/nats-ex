@@ -1,0 +1,24 @@
+{
+  "name": "nats-ex-joi-validator",
+  "version": "0.1.0",
+  "main": "index.js",
+  "keywords": [
+    "nats-ex",
+    "joi",
+    "validator"
+  ],
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "zhaoyao91 <zhaoyao91@163.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "joi": "^13.0.0",
+    "nats-ex": "^0.1.2"
+  },
+  "devDependencies": {
+    "jest": "^22.4.2",
+    "joi": "^13.0.0",
+    "nats-ex": "^0.1.2"
+  }
+}
