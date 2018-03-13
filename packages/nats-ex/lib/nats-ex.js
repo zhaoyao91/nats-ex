@@ -139,8 +139,8 @@ module.exports = class NatsEx {
         if (msgStr instanceof NATS.NatsError) {
           const natsError = msgStr
           if (natsError.code === NATS.REQ_TIMEOUT) {
-            const error = new NatsExError(Protocol.errorCodes.TIMEOUT, `TIMEOUT: Request for ${name} timed out over ${timeout} milliseconds.`, {
-              methodName: name,
+            const error = new NatsExError(Protocol.errorCodes.TIMEOUT, `TIMEOUT: Method request timed out`, {
+              name: name,
               data: data,
               options: options,
             })
