@@ -1,0 +1,24 @@
+{
+  "name": "nats-ex",
+  "version": "0.1.1",
+  "description": "Simplify communications on NATS.",
+  "main": "index.js",
+  "keywords": [
+    "nats",
+    "ex"
+  ],
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "zhaoyao91 <zhaoyao91@163.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ejson": "^2.1.2",
+    "nats": "^0.8.4",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "jest": "^22.4.2",
+    "sleep-promise": "^2.0.0"
+  }
+}
