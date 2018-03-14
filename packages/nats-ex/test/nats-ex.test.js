@@ -65,6 +65,17 @@ describe('nats-ex', function () {
       expect(result).toBe(echoData)
     })
 
+    it('should transfer Date', async () => {
+      expect.assertions(2)
+      const name = uuid.v4()
+      const dataDate = new Date()
+      natsEx.registerMethod(name, (data, req) => {
+        expect(data.date).toBeInstanceOf(Date)
+        expect(data.date.getTime()).toBe(dataDate.getTime())
+      })
+      await natsEx.callMethod(name, {date: dataDate})
+    })
+
     describe('validator', function () {
       const bobValidator = (data) => {
         if (data !== 'Bob') {
@@ -183,6 +194,17 @@ describe('nats-ex', function () {
       const name = uuid.v4()
       natsEx.listenEvent(name, null, (data) => {
         expect(data).toBe(eventData)
+        done()
+      })
+      natsEx.emitEvent(name, eventData)
+    })
+
+    it('should emit a simple event with Date', (done) => {
+      const dataDate = new Date()
+      const eventData = {date: dataDate}
+      const name = uuid.v4()
+      natsEx.listenEvent(name, null, (data) => {
+        expect(data).toEqual(eventData)
         done()
       })
       natsEx.emitEvent(name, eventData)
