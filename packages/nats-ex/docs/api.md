@@ -61,7 +61,9 @@ The returned value of the handler will be sent back to the caller.
 Any error will be thrown to the caller too, with `code`, `message`, `details` fields. 
 
 ```
-(name: String, Validator?, Handler) => Void
+(name, Handler)
+(name, Validator, Handler)
+=> Void
 
 Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
 
@@ -75,7 +77,7 @@ Call a method and wait for response.
 If request handler throw an error, this method will throw a `NatsExError` and wrap `code`, `message`, `details` in it.
 
 ```
-(name: String, data: Any?, Options?) => Promise & {requestId: String} => Any
+(name: String, data: Any, Options?) => Promise & {requestId: String} => Any
 
 Options ~ {
   timeout: Number = 60000, // default to 1 min
@@ -104,7 +106,9 @@ Emit an event.
 Listen to and prepare to handle the event.
 
 ```
-(name: String, Validator?, Handler) => Void
+(name, Handler)
+(name, Validator, Handler)
+=> Void
 
 Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
 
@@ -118,7 +122,9 @@ Listen to and prepare to handle the event.
 Unlike `listenEvent`, call this method will register a listener which will not join the queue group.
 
 ```
-(name: String, Validator?, Handler) => Void
+(name, Handler)
+(name, Validator, Handler)
+=> Void
 
 Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
 

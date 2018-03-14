@@ -2,6 +2,7 @@ const NATS = require('nats')
 const uuid = require('uuid')
 const NatsExError = require('./nats-ex-error')
 const Protocol = require('./protocol')
+const clean = require('clean-options')
 
 module.exports = class NatsEx {
   /**
@@ -21,7 +22,7 @@ module.exports = class NatsEx {
   constructor (options) {
     this._options = {
       ...defaultOptions,
-      ...options
+      ...clean(options)
     }
 
     // setup default error handlers
@@ -75,7 +76,9 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (name, Validator?, Handler) => Void
+   * (name, Handler)
+   * (name, Validator, Handler)
+   * => Void
    *
    * Validator ~ (data) => data // throw NatsExError if validation failed
    *
@@ -118,20 +121,20 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (name, data?, Options?) => Promise & {requestId} => Any
+   * (name, data, Options?) => Promise & {requestId} => Any
    *
    * Options ~ {
    *   timeout: Number = 60000, // default to 1 min
    *   returnData: Boolean = true
    * }
    */
-  callMethod (name, data, options = {}) {
+  callMethod (name, data, options) {
     const requestId = genId()
     const promise = new Promise((resolve, reject) => {
       const {
         timeout = 60000,
         returnData = true,
-      } = options
+      } = clean(options)
       const nats = this._nats
       const reqStr = Protocol.buildRequestMessageString(requestId, data)
       const topic = `method.${name}`
@@ -203,7 +206,9 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (name, Validator?, Handler) => Void
+   * (name, Handler)
+   * (name, Validator, Handler)
+   * => Void
    *
    * Validator ~ (data) => data // throw NatsExError if validation failed
    *
@@ -232,7 +237,9 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (name, Validator?, Handler) => Void
+   * (name, Handler)
+   * (name, Validator, Handler)
+   * => Void
    *
    * Validator ~ (data) => data // throw NatsExError if validation failed
    *

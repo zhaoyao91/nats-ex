@@ -1,6 +1,6 @@
 {
   "name": "nats-ex",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Simplify communications on NATS.",
   "main": "index.js",
   "keywords": [
@@ -11,8 +11,10 @@
     "test": "jest"
   },
   "author": "zhaoyao91 <zhaoyao91@163.com>",
+  "repository": "https://github.com/zhaoyao91/nats-ex/packages/nats-ex",
   "license": "MIT",
   "dependencies": {
+    "clean-options": "^1.0.0",
     "ejson": "^2.1.2",
     "nats": "^0.8.4",
     "uuid": "^3.2.1"
