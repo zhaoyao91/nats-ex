@@ -8,6 +8,7 @@ const loadReplHistory = require('repl.history')
 const path = require('path')
 const args = require('node-args')
 const pick = require('lodash.pick')
+const defaults = require('lodash.defaults')
 
 function errorHandler (err) {
   console.error(err)
@@ -43,11 +44,15 @@ const defaultContext = {
   Date: Date // what the fucking bug! default Date in repl context is not equal to the Date in files!
 }
 
-if (args.url) {
-  const options = {
-    reconnect: true,
-    ...pick(args, 'url', 'reconnect', 'queueGroup', 'logEvents')
-  }
+const actualArgs = defaults(args, {
+  start: true,
+  url: 'nats://localhost:4222',
+  reconnect: true,
+  logEvents: true,
+})
+
+if (actualArgs.start) {
+  const options = pick(actualArgs, 'url', 'reconnect', 'queueGroup', 'logEvents')
   connect(options).then(natsEx => startRepl({natsEx})).catch(errorHandler)
 }
 else {

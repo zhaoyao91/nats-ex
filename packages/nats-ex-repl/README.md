@@ -13,7 +13,7 @@ npm i -g nats-ex-repl
 Enter repl:
 
 ```
-nats-ex-repl --url nats://localhost:4222
+nats-ex-repl
 ```
 
 Then in the repl:
@@ -26,10 +26,11 @@ print(natsEx.callMethod('ping'))
 
 Several options of [NatsEx.constructor](../nats-ex/docs/api.md#natsex) are supported to be passed as command options:
 
-- url - if specified, repl will try to connect NATS before start
-- reconnect
+- start = true - if false, it won't create natsEx automatically. you can use `connect` to connect nats manually in the repl
+- url = "nats://localhost:4222"
+- reconnect = true
+- logEvents = true
 - queueGroup
-- logEvents
 
 ## Repl Context
 
@@ -39,7 +40,7 @@ There are several variables in the repl context:
 - [NatsEx](../nats-ex/docs/api.md#natsex)
 - [NatsExError](../nats-ex/docs/api.md#natsexerror)
 - [Protocol](../nats-ex/docs/api.md#protocol)
-- natsEx - exists only if `url` option is specified
+- natsEx
 - print - `(Promise) => String`, receive a promise returned by`natsEx.callMethod`, and print the result when response received. 
 
 ## License
