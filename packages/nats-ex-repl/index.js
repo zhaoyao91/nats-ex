@@ -40,6 +40,7 @@ const defaultContext = {
   NatsExError,
   Protocol,
   print,
+  Date: Date // what the fucking bug! default Date in repl context is not equal to the Date in files!
 }
 
 if (args.url) {
