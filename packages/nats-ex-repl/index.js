@@ -2,16 +2,26 @@
 
 const {connect, NatsEx, NatsExError, Protocol} = require('nats-ex')
 const repl = require('repl')
-const colors = require('colors')
-const util = require('util')
 const loadReplHistory = require('repl.history')
 const path = require('path')
 const args = require('node-args')
-const pick = require('lodash.pick')
 const defaults = require('lodash.defaults')
 
+// init args
+const actualArgs = defaults(args, {
+  start: true,
+  url: 'nats://localhost:4222',
+  logger: 'console',
+  logMessageEvents: false,
+  logMessageErrors: true,
+})
+
+// setup logger
+let logger = console
+if (actualArgs.logger === 'json') logger = require('simple-json-logger')
+
 function errorHandler (err) {
-  console.error(err)
+  logger.error(err)
   process.exit(1)
 }
 
@@ -23,38 +33,57 @@ function startRepl (extraContext) {
   loadReplHistory(server, path.resolve(process.env.HOME, '.node_history'))
 }
 
-function print (methodPromise) {
-  const {requestId} = methodPromise
-  methodPromise.then(result => {
-    console.log(`response: ${requestId}`.cyan)
-    console.log(util.inspect(result).cyan)
-  }).catch(err => {
-    console.error(`error: ${requestId}`.red)
-    console.error(util.inspect(err).red)
-  })
-  return requestId
-}
-
 const defaultContext = {
   connect,
   NatsEx,
   NatsExError,
   Protocol,
-  print,
   Date: Date // what the fucking bug! default Date in repl context is not equal to the Date in files!
 }
 
-const actualArgs = defaults(args, {
-  start: true,
-  url: 'nats://localhost:4222',
-  reconnect: true,
-  logEvents: true,
-})
-
 if (actualArgs.start) {
-  const options = pick(actualArgs, 'url', 'reconnect', 'queueGroup', 'logEvents')
-  connect(options).then(natsEx => startRepl({natsEx})).catch(errorHandler)
+  const {
+    url,
+    queueGroup,
+    logMessageEvents,
+    logMessageErrors,
+  } = actualArgs
+  const options = {
+    url,
+    queueGroup,
+    logger,
+    logMessageErrors,
+    logMessageEvents,
+    reconnectOnStart: true,
+    reconnectOnDisconnect: true,
+  }
+  connect(options).then(natsEx => startRepl({
+    emit: natsEx.emit.bind(natsEx),
+    call: buildReplCall(natsEx),
+    on: natsEx.on.bind(natsEx),
+  })).catch(errorHandler)
 }
 else {
   startRepl()
+}
+
+/**
+ * async func is not convenient in repl
+ * let it receive optional callback
+ */
+function buildReplCall (natsEx) {
+  return function (topic, data, options) {
+    let callback = null
+    const callbackReceiver = (cb) => {
+      callback = cb
+      return callbackReceiver.requestId
+    }
+    const promise = natsEx.call(topic, data, options)
+    callbackReceiver.requestId = promise.requestId
+    promise.then(x => callback && callback(null, x)).catch(err => {
+      if (callback) callback(err)
+      else logger.error(err)
+    })
+    return callbackReceiver
+  }
 }

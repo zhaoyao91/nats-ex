@@ -19,18 +19,19 @@ nats-ex-repl
 Then in the repl:
 
 ```
-print(natsEx.callMethod('ping'))
+emit('hello')
+
+call('echo', 'my input')((err, data) => {...}) 
 ```
 
 ## Command Options
 
-Several options of [NatsEx.constructor](../nats-ex/docs/api.md#natsex) are supported to be passed as command options:
-
 - start = true - if false, it won't create natsEx automatically. you can use `connect` to connect nats manually in the repl
 - url = "nats://localhost:4222"
-- reconnect = true
-- logEvents = true
-- queueGroup
+- queueGroup: String?
+- logger: 'console' | 'json' = 'console'
+- logMessageEvents = false
+- logMessageErrors = true
 
 ## Repl Context
 
@@ -40,8 +41,16 @@ There are several variables in the repl context:
 - [NatsEx](../nats-ex/docs/api.md#natsex)
 - [NatsExError](../nats-ex/docs/api.md#natsexerror)
 - [Protocol](../nats-ex/docs/api.md#protocol)
-- natsEx
-- print - `(Promise) => String`, receive a promise returned by`natsEx.callMethod`, and print the result when response received. 
+- [on](../nats-ex/docs/api.md#$.on)
+- [emit](../nats-ex/docs/api.md#$.emit)
+- [call](../nats-ex/docs/api.md#$.call) - the return value are different for repl convenient
+  ```
+  (topic, data, options) => CallbackReceiver
+  
+  CallbackReceiver ~ {requestId} & (Callback) => Void
+  
+  Callback ~ (error, data) => requestId
+  ```
 
 ## License
 

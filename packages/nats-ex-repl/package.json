@@ -1,6 +1,6 @@
 {
   "name": "nats-ex-repl",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "main": "index.js",
   "bin": {
     "nats-ex-repl": "index.js"
@@ -10,13 +10,13 @@
     "repl"
   ],
   "author": "zhaoyao91 <zhaoyao91@163.com>",
+  "repository": "https://github.com/zhaoyao91/nats-ex/packages/nats-ex-repl",
   "license": "MIT",
   "dependencies": {
-    "colors": "^1.2.1",
     "lodash.defaults": "^4.2.0",
-    "lodash.pick": "^4.4.0",
-    "nats-ex": "^0.1.3",
+    "nats-ex": "^0.2.1",
     "node-args": "^2.1.8",
-    "repl.history": "^0.1.4"
+    "repl.history": "^0.1.4",
+    "simple-json-logger": "^2.1.0"
   }
 }
