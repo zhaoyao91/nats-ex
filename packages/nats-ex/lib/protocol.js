@@ -1,13 +1,14 @@
 const NatsExError = require('./nats-ex-error')
 const EJSON = require('ejson')
+const uuid = require('uuid')
+const clean = require('clean-options')
 
-const version = 1
+const version = 2
 
 const errorCodes = {
-  'TIMEOUT': 1,
-  'PROTOCOL_ERROR': 2,
-  'VALIDATION_ERROR': 3,
-  'INTERNAL_ERROR': 4,
+  'PROTOCOL_ERROR': 1,
+  'VALIDATION_ERROR': 2,
+  'INTERNAL_ERROR': 3,
 }
 
 // message string
@@ -38,7 +39,7 @@ function checkMessageObject (msgObj) {
     typeof msgObj !== 'object'
     || msgObj === null
     || msgObj.v !== version
-    || (typeof msgObj.rid !== 'string' && typeof msgObj.eid !== 'string')
+    || typeof msgObj.id !== 'string'
     || typeof msgObj.ts !== 'number'
   ) {
     throw new NatsExError(
@@ -53,70 +54,55 @@ function checkMessageObject (msgObj) {
  * (messageObject) => formattedMessageObject
  */
 function formatMessageObject (msgObj) {
-  return {
+  return clean({
     version: msgObj.v,
-    requestId: msgObj.rid,
-    eventId: msgObj.eid,
+    messageId: msgObj.id,
     timestamp: msgObj.ts,
     data: msgObj.data,
-    error: msgObj.err ? {
+    error: msgObj.err ? clean({
       code: msgObj.err.code,
       message: msgObj.err.msg,
       details: msgObj.err.det,
-    } : undefined
+    }) : undefined
+  })
+}
+
+/**
+ * (messageString) => {raw, formatted}
+ */
+function parseMessage (msgStr) {
+  const msgObj = parseMessageString(msgStr)
+  checkMessageObject(msgObj)
+  return {
+    raw: msgObj,
+    formatted: formatMessageObject(msgObj)
   }
 }
 
 /**
- * (messageString) => formattedMessageObject
+ * ({data?, error?}) => {id, string}
  */
-function parse (msgStr) {
-  const msgObj = parseMessageString(msgStr)
-  checkMessageObject(msgObj)
-  return formatMessageObject(msgObj)
-}
-
-function buildRequestMessageString (requestId, data) {
-  const msg = {
+function buildMessage ({data, error}) {
+  const id = uuid.v4()
+  const object = clean({
     v: version,
     ts: (new Date()).getTime(),
-    rid: requestId,
-    data: data
-  }
-  return EJSON.stringify(msg)
-}
-
-function buildResponseMessageString (requestId, data, error) {
-  const msg = {
-    v: version,
-    ts: (new Date()).getTime(),
-    rid: requestId,
+    id,
     data: data,
-    err: error ? {
-      code: error.code,
+    err: !!error ? clean({
+      code: error.code || errorCodes.INTERNAL_ERROR,
       msg: error.message,
       det: error.details
-    } : undefined
-  }
-  return EJSON.stringify(msg)
-}
-
-function buildEventMessageString (eventId, data) {
-  const msg = {
-    v: version,
-    ts: (new Date()).getTime(),
-    eid: eventId,
-    data: data
-  }
-  return EJSON.stringify(msg)
+    }) : undefined
+  })
+  const string = EJSON.stringify(object)
+  return {id, object, string}
 }
 
 module.exports = {
   version,
   errorCodes,
 
-  parse,
-  buildRequestMessageString,
-  buildResponseMessageString,
-  buildEventMessageString,
+  parseMessage,
+  buildMessage,
 }

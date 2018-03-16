@@ -25,14 +25,14 @@ Options ~ see NatsEx.constructor.options
 (Options?) => NatsEx
 
 Options ~ {
-  url: String = nats://localhost:4222, // you could use ',' to join several server addresses
-  reconnect: Boolean = false, // if true, the client will try to reconnect to NATS server every second if it is disconnected
-  queueGroup: String = null, // define and join a queue group. methods and events of the same name in a queue group will be load balanced between all group members
+  url: String = nats://localhost:4222,
+  queueGroup: String = null,
+  reconnectOnStart: Boolean = false
+  reconnectOnDisconnect: Boolean = true
   logger: Object = console,
-  logEvents: Boolean = true,
-  methodErrorHandler?: (error) => Void // default behavior is to log the error
-  eventErrorHandler?: (error) => Void // default behavior is to log the error
-  natsErrorHandler?: (error) => Void // default behavior is to log the error
+  logNatsEvents: Boolean = true,
+  logMessageEvents: Boolean = true,
+  natsErrorHandler?: (error) => Void
 }
 ```
 
@@ -52,83 +52,42 @@ Gracefully disconnect from the NATS server.
 () => Promise => Void
 ```
 
-### $.registerMethod
+### $.emit
 
-Register a method and prepare to handle the requests.
-
-The returned value of the handler will be sent back to the caller.
-
-Any error will be thrown to the caller too, with `code`, `message`, `details` fields. 
+Emit a message.
 
 ```
-(name, Handler)
-(name, Validator, Handler)
-=> Void
-
-Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
-
-Handler ~ (data: Any?, requestMessage) => Promise => Any
+(topic, data, error?) => messageId
 ```
 
-### $.callMethod
+### $.call
 
-Call a method and wait for response.
-
-If request handler throw an error, this method will throw a `NatsExError` and wrap `code`, `message`, `details` in it.
+Send a request message and wait for response message.
 
 ```
-(name: String, data: Any, Options?) => Promise & {requestId: String} => Any
+(topic, data, Options?) => Promise => Any
 
 Options ~ {
   timeout: Number = 60000, // default to 1 min
-  returnData: Boolean = true, // if false, it will return the whole response message
+  returnResponse: Boolean = false, // if true, it will return the response message instead of the data of the response
 }
 ```
 
-### $.callMethodAndForget
+### $.on
 
-Call a method and forget the response.
-
-```
-(name: String, data: Any?) => requestId: String
-```
-
-### $.emitEvent
-
-Emit an event.
+Subscribe some kind of message.
 
 ```
-(name: String, data: Any?) => eventId: String
-```
+(topic, Handler, Options?) => Void
 
-### $.listenEvent
+Handler ~ (data, message, receivedTopic) => Promise => Any
 
-Listen to and prepare to handle the event.
+Options ~ {
+  validator: Validator?
+  formGroup: Boolean = true, // if true listeners on this natsEx (queueGroup) will form a queue group so listeners of same topics will be load balanced 
+}
 
-```
-(name, Handler)
-(name, Validator, Handler)
-=> Void
-
-Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
-
-Handler ~ (data: Any?, eventMessage: Object) => Promise => Void
-```
-
-### $.listenBroadcastEvent
-
-Listen to and prepare to handle the event.
-
-Unlike `listenEvent`, call this method will register a listener which will not join the queue group.
-
-```
-(name, Handler)
-(name, Validator, Handler)
-=> Void
-
-Validator ~ (data: Any) => data: Any // throw NatsExError if validation failed
-
-Handler ~ (data: Any?, eventMessage: Object) => Promise => Void
+Validator ~ (data) => data // throw NatsExError if validation failed
 ```
 
 ## NatsExError

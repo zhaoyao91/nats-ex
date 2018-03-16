@@ -2,40 +2,19 @@
 
 ## Status
 
-- Version: 1
+- Version: 2
 - Based on: 
   - NATS
   - EJSON
 
-## Schemas  
-
-### Topic
-
-`method.${methodName}`
-
-or
-
-`event.${eventName}`
-
-### Method Request
+## Message Schema
 
 ```
 {
-  v: 1, // protocol version
-  rid: String, // request id
-  ts: Number, // timestap
-  data: Any?, // payload
-}
-```
-
-### Method Response 
-
-```
-{
-  v: 1, // protocol version
-  rid: String, // request id
+  v: 2, // protocol version
+  id: String, // message id,
   ts: Number, // timestamp
-  data: Any?, // payload
+  data?: Any, // payload
   err?: {
     code: String,
     msg: String?, // error message
@@ -44,20 +23,8 @@ or
 }
 ```
 
-#### error code
+## Error Codes
 
-- 1 - TIMEOUT
-- 2 - PROTOCOL_ERROR
-- 3 - VALIDATION_ERROR
-- 4 - INTERNAL_ERROR
-
-### Event Message
-
-```
-{
-  v: 1, // protocol version
-  eid: String, // event id
-  ts: Number, // timestamp
-  data: Any?, // payload
-}
-```
+- 1 - PROTOCOL_ERROR
+- 2 - VALIDATION_ERROR
+- 3 - INTERNAL_ERROR

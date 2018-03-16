@@ -4,7 +4,6 @@ Simplify communications on NATS.
 
 ## Features
 
-- RR method and event communication modes
 - EJSON-based message protocol (support transfer `Date` and `Buffer` directly)
 - Auto transfer errors
 - Input validation
@@ -13,7 +12,7 @@ Simplify communications on NATS.
 ## Installation
 
 ```
-npm i -S nats-ex
+npm i nats-ex
 ```
 
 ## Usage
@@ -27,19 +26,20 @@ const natsEx = await connect({
   queueGroup: 'X'
 })
 
-// register a method
-natsEx.registerMethod('sum', null, ({a, b}) => a + b)
+// subscribe a topic
+natsEx.on('hello', (name) => {
+  console.log(`Welcome ${name}`)
+  return `Hello ${name}`
+})
 
-// call a method
-const sum = await natsEx.callMethod('sum', {a: 1, b: 2})
-// sum is 3
+// emit an message
+natsEx.emit('hello', 'Bob')
+// console: Welcome Bob
 
-// listen to an event
-natsEx.listenEvent('hi', null, ({name}) => console.log(`Hello ${name}`))
-
-// emit an event
-natsEx.emitEvent('hi', {name: 'Bob'})
-// console: Hello Bob
+// request a response
+natsEx.call('hello', 'Alice').then(console.log)
+// console: Welcome Alice
+// console: Hello Alice
 ```
 
 ## API

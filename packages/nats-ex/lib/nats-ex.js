@@ -1,7 +1,6 @@
 const NATS = require('nats')
-const uuid = require('uuid')
 const NatsExError = require('./nats-ex-error')
-const Protocol = require('./protocol')
+const {parseMessage, buildMessage} = require('./protocol')
 const clean = require('clean-options')
 
 module.exports = class NatsEx {
@@ -10,12 +9,12 @@ module.exports = class NatsEx {
    *
    * Options ~ {
    *   url: String = nats://localhost:4222,
-   *   reconnect: Boolean = false,
    *   queueGroup: String = null,
+   *   reconnectOnStart: Boolean = false
+   *   reconnectOnDisconnect: Boolean = true
    *   logger: Object = console,
-   *   logEvents: Boolean = true,
-   *   methodErrorHandler?: (error) => Void
-   *   eventErrorHandler?: (error) => Void
+   *   logNatsEvents: Boolean = true,
+   *   logMessageEvents: Boolean = true,
    *   natsErrorHandler?: (error) => Void
    * }
    */
@@ -25,14 +24,7 @@ module.exports = class NatsEx {
       ...clean(options)
     }
 
-    // setup default error handlers
-
-    if (!this._options.methodErrorHandler) {
-      this._options.methodErrorHandler = (err) => this._options.logger.error(err)
-    }
-    if (!this._options.eventErrorHandler) {
-      this._options.eventErrorHandler = (err) => this._options.logger.error(err)
-    }
+    // setup nats error handler
     if (!this._options.natsErrorHandler) {
       this._options.natsErrorHandler = (err) => {
         this._options.logger.error(err)
@@ -40,43 +32,58 @@ module.exports = class NatsEx {
       }
     }
 
+    // setup message event logger
+    this._messageEventLogger = this._options.logMessageEvents
+      ? this._options.logger
+      : dumbLogger
+
     this._handlingCounter = new Counter()
     this._subscriptions = []
   }
 
   connect () {
     return new Promise((resolve, reject) => {
-      const {
-        url,
-        reconnect,
-        logger,
-        logEvents,
-        natsErrorHandler,
-      } = this._options
+      try {
+        const {
+          url,
+          reconnectOnStart,
+          reconnectOnDisconnect,
+          logger,
+          logNatsEvents,
+          natsErrorHandler,
+        } = this._options
 
-      const nats = NATS.connect({
-        ...parseUrlOption(url),
-        ...parseReconnectOption(reconnect)
-      })
+        const nats = NATS.connect({
+          ...parseUrlOption(url),
+          ...parseReconnectOption(reconnectOnStart, reconnectOnDisconnect)
+        })
 
-      // resolve current promise on connect
-      const onConnect = () => {
-        resolve()
-        nats.removeListener('connect', onConnect)
+        // resolve current promise on connect
+        const onConnect = () => {
+          nats.removeListener('connect', onConnect)
+          resolve()
+        }
+        nats.on('connect', onConnect)
+
+        if (logNatsEvents) registerLogNatsEventsListeners(nats, logger)
+
+        nats.on('error', natsErrorHandler)
+
+        this._nats = nats
       }
-      nats.on('connect', onConnect)
-
-      if (logEvents) registerLogEventListeners(nats, logger)
-
-      nats.on('error', natsErrorHandler)
-
-      this._nats = nats
+      catch (err) {
+        reject(err)
+      }
     })
   }
 
   // gracefully close
   close () {
+    // stop all subscriptions
     this._subscriptions.forEach(sid => this._nats.unsubscribe(sid))
+
+    // watch handling count
+    // if count === 0, close nats connection
     return new Promise((resolve, reject) => {
       this._handlingCounter.watch(count => {
         if (count === 0) {
@@ -91,95 +98,52 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (name, Handler)
-   * (name, Validator, Handler)
-   * => Void
-   *
-   * Validator ~ (data) => data // throw NatsExError if validation failed
-   *
-   * Handler ~ (data, msg) => Promise => Any
+   * (topic, data, error?) => messageId
    */
-  registerMethod (name, validator, handler) {
-    if (!name) throw new TypeError('`name` cannot be empty')
-    if (!handler) [validator, handler] = [handler, validator]
-
-    const {queueGroup, methodErrorHandler} = this._options
+  emit (topic, data, error) {
     const nats = this._nats
-
-    const topic = `method.${name}`
-
-    const sid = nats.subscribe(topic, {queue: queueGroup}, async (reqStr, replyTo) => {
-      this._handlingCounter.inc()
-      let requestId = ''
-      try {
-        const req = Protocol.parse(reqStr)
-        requestId = req.requestId
-        let {data} = req
-        if (validator) data = validator(data)
-        const result = await handler(data, req)
-        if (replyTo) {
-          const resStr = Protocol.buildResponseMessageString(requestId, result)
-          nats.publish(replyTo, resStr)
-        }
-      }
-      catch (err) {
-        methodErrorHandler(err)
-        if (replyTo) {
-          const resStr = Protocol.buildResponseMessageString(requestId, undefined, {
-            code: err.code || Protocol.errorCodes.INTERNAL_ERROR,
-            message: err.message,
-            details: err.details
-          })
-          nats.publish(replyTo, resStr)
-        }
-      }
-      this._handlingCounter.dec()
-    })
-    this._subscriptions.push(sid)
+    const messageEventLogger = this._messageEventLogger
+    const message = buildMessage({data, error})
+    nats.publish(topic, message.string)
+    messageEventLogger.info('message sent', {topic, message: message.object})
+    return message.id
   }
 
   /**
-   * (name, data, Options?) => Promise & {requestId} => Any
+   * (topic, data, Options?) => Promise => Any
    *
    * Options ~ {
    *   timeout: Number = 60000, // default to 1 min
-   *   returnData: Boolean = true
+   *   returnResponse: Boolean = false
    * }
    */
-  callMethod (name, data, options) {
-    const requestId = genId()
+  async call (topic, data, options) {
+    const nats = this._nats
+    const messageEventLogger = this._messageEventLogger
+    const request = buildMessage({data})
+    const {
+      timeout = 60000,
+      returnResponse = false,
+    } = clean(options)
     const promise = new Promise((resolve, reject) => {
-      const {
-        timeout = 60000,
-        returnData = true,
-      } = clean(options)
-      const nats = this._nats
-      const reqStr = Protocol.buildRequestMessageString(requestId, data)
-      const topic = `method.${name}`
-      nats.requestOne(topic, reqStr, {}, timeout, (msgStr) => {
-        if (msgStr instanceof NATS.NatsError) {
-          const natsError = msgStr
-          if (natsError.code === NATS.REQ_TIMEOUT) {
-            const error = new NatsExError(Protocol.errorCodes.TIMEOUT, `TIMEOUT: Method request timed out`, {
-              name: name,
-              data: data,
-              options: options,
-            })
-            reject(error)
-          }
-          else {
-            reject(natsError)
-          }
+      nats.requestOne(topic, request.string, {}, timeout, (responseString) => {
+        if (responseString instanceof NATS.NatsError) {
+          reject(responseString)
         }
         else {
-          let response = null
+          let parsedResponse = null
           try {
-            response = Protocol.parse(msgStr)
+            parsedResponse = parseMessage(responseString)
           }
           catch (err) {
             return reject(err)
           }
-          if (returnData) {
+          const {raw: rawResponse, formatted: response} = parsedResponse
+          messageEventLogger.info('message received', {type: 'response', requestTopic: topic, message: rawResponse})
+          if (returnResponse) {
+            resolve(response)
+          }
+          else {
             if (response.error) {
               const {code, message, details} = response.error
               const error = new NatsExError(code, message, details)
@@ -189,116 +153,67 @@ module.exports = class NatsEx {
               resolve(response.data)
             }
           }
-          else {
-            resolve(response)
-          }
         }
       })
+      messageEventLogger.info('message sent', {type: 'request', topic, message: request.object})
     })
-    promise.requestId = requestId
+    promise.requestId = request.id
     return promise
   }
 
   /**
-   * (name, data?) => requestId
-   */
-  callMethodAndForget (name, data) {
-    const nats = this._nats
-    const requestId = genId()
-    const reqStr = Protocol.buildRequestMessageString(requestId, data)
-    const topic = `method.${name}`
-    nats.publish(topic, reqStr)
-    return requestId
-  }
-
-  /**
-   * (name, data?) => eventId
-   */
-  emitEvent (name, data) {
-    const nats = this._nats
-    const eventId = genId()
-    const event = Protocol.buildEventMessageString(eventId, data)
-    const topic = `event.${name}`
-    nats.publish(topic, event)
-    return eventId
-  }
-
-  /**
-   * (name, Handler)
-   * (name, Validator, Handler)
-   * => Void
+   * (topic, Handler, Options?) => Void
+   *
+   * Handler ~ (data, message, receivedTopic) => Promise => Any
+   *
+   * Options ~ {
+   *   validator: Validator?
+   *   formGroup: Boolean = true,
+   * }
    *
    * Validator ~ (data) => data // throw NatsExError if validation failed
-   *
-   * Handler ~ (data, msg) => Promise => Void
    */
-  listenEvent (name, validator, handler) {
-    if (!name) throw new TypeError('`name` cannot be empty')
-    if (!handler) [validator, handler] = [handler, validator]
-
-    const {eventErrorHandler, queueGroup} = this._options
+  on (topic, handler, options) {
     const nats = this._nats
-
-    const topic = `event.${name}`
-
-    const sid = nats.subscribe(topic, {queue: queueGroup}, async (msgStr) => {
-      this._handlingCounter.inc()
+    const messageEventLogger = this._messageEventLogger
+    const subscriptions = this._subscriptions
+    const handlingCounter = this._handlingCounter
+    const {queueGroup} = this._options
+    const {
+      validator,
+      formGroup = true,
+    } = clean(options)
+    const sid = nats.subscribe(topic, {queue: formGroup ? queueGroup : undefined}, async (messageString, replyTopic, receivedTopic) => {
+      handlingCounter.inc()
       try {
-        const msg = Protocol.parse(msgStr)
-        let {data} = msg
+        const parsedMessage = parseMessage(messageString)
+        const {raw: rawMessage, formatted: message} = parsedMessage
+        messageEventLogger.info('message received', {topic: receivedTopic, message: rawMessage})
+        let {data} = message
         if (validator) data = validator(data)
-        await handler(data, msg)
+        const result = await handler(data, message, receivedTopic)
+        if (replyTopic) {
+          this.emit(replyTopic, result)
+        }
       }
       catch (err) {
-        eventErrorHandler(err)
+        if (replyTopic) {
+          this.emit(replyTopic, undefined, err)
+        }
       }
-      this._handlingCounter.dec()
+      handlingCounter.dec()
     })
-    this._subscriptions.push(sid)
-  }
-
-  /**
-   * (name, Handler)
-   * (name, Validator, Handler)
-   * => Void
-   *
-   * Validator ~ (data) => data // throw NatsExError if validation failed
-   *
-   * Handler ~ (data, msg) => Promise => Void
-   */
-  listenBroadcastEvent (name, validator, handler) {
-    if (!name) throw new TypeError('`name` cannot be empty')
-    if (!handler) [validator, handler] = [handler, validator]
-
-    const {eventErrorHandler} = this._options
-    const nats = this._nats
-
-    const topic = `event.${name}`
-
-    const sid = nats.subscribe(topic, async (msgStr) => {
-      this._handlingCounter.inc()
-      try {
-        const msg = Protocol.parse(msgStr)
-        let {data} = msg
-        if (validator) data = validator(data)
-        await handler(data, msg)
-      }
-      catch (err) {
-        eventErrorHandler(err)
-      }
-      this._handlingCounter.dec()
-    })
-    this._subscriptions.push(sid)
+    subscriptions.push(sid)
   }
 }
 
-function registerLogEventListeners (nats, logger) {
+function registerLogNatsEventsListeners (nats, logger) {
   nats.on('error', (err) => logger.error(err))
   nats.on('connect', () => logger.info('nats connected'))
   nats.on('disconnect', () => logger.warn('nats disconnected'))
   nats.on('reconnecting', () => logger.info('nats reconnecting...'))
   nats.on('reconnect', () => logger.info('nats reconnected'))
-  nats.on('close', () => logger.info('nats closed'))
+  nats.on('close', () => logger.info('nats connection closed'))
 }
 
 function parseUrlOption (url) {
@@ -308,30 +223,36 @@ function parseUrlOption (url) {
   else return {servers: urls}
 }
 
-function parseReconnectOption (reconnect) {
-  if (reconnect) return {
+function parseReconnectOption (reconnectOnStart, reconnectOnDisconnect) {
+  if (reconnectOnStart && reconnectOnDisconnect) return {
     reconnect: true,
     waitOnFirstConnect: true,
     maxReconnectAttempts: -1,
     reconnectTimeWait: 1000,
   }
-  else return {
+  else if (!reconnectOnStart && !reconnectOnDisconnect) return {
     reconnect: false,
     waitOnFirstConnect: false,
-    maxReconnectAttempts: 0,
-    reconnectTimeWait: 0,
+    maxReconnectAttempts: 0
   }
+  else if (!reconnectOnStart && reconnectOnDisconnect) return {
+    reconnect: true,
+    waitOnFirstConnect: false,
+    maxReconnectAttempts: -1,
+    reconnectTimeWait: 1000,
+  }
+  else throw new TypeError('Do not support reconnectOnStart=true but reconnectOnDisconnect=false')
 }
 
 const defaultOptions = {
-  logger: console,
   url: 'nats://localhost:4222',
-  reconnect: false,
-  logEvents: true,
   queueGroup: null,
+  reconnectOnStart: false,
+  reconnectOnDisconnect: true,
+  logger: console,
+  logNatsEvents: true,
+  logMessageEvents: true,
 }
-
-const genId = uuid.v4
 
 class Counter {
   constructor () {
@@ -357,4 +278,10 @@ class Counter {
   _trigger () {
     this._listeners.forEach(listener => listener(this._count))
   }
+}
+
+const emptyFunc = () => {}
+
+const dumbLogger = {
+  info: emptyFunc,
 }
