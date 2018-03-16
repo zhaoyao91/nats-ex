@@ -56,7 +56,7 @@ function checkMessageObject (msgObj) {
 function formatMessageObject (msgObj) {
   return clean({
     version: msgObj.v,
-    messageId: msgObj.id,
+    id: msgObj.id,
     timestamp: msgObj.ts,
     data: msgObj.data,
     error: msgObj.err ? clean({

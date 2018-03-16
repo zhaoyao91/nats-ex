@@ -15,6 +15,7 @@ module.exports = class NatsEx {
    *   logger: Object = console,
    *   logNatsEvents: Boolean = true,
    *   logMessageEvents: Boolean = true,
+   *   logMessageErrors: Boolean = true
    *   natsErrorHandler?: (error) => Void
    * }
    */
@@ -34,6 +35,11 @@ module.exports = class NatsEx {
 
     // setup message event logger
     this._messageEventLogger = this._options.logMessageEvents
+      ? this._options.logger
+      : dumbLogger
+
+    // setup message error logger
+    this._messageErrorLogger = this._options.logMessageErrors
       ? this._options.logger
       : dumbLogger
 
@@ -176,6 +182,7 @@ module.exports = class NatsEx {
   on (topic, handler, options) {
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
+    const messageErrorLogger = this._messageErrorLogger
     const subscriptions = this._subscriptions
     const handlingCounter = this._handlingCounter
     const {queueGroup} = this._options
@@ -197,6 +204,7 @@ module.exports = class NatsEx {
         }
       }
       catch (err) {
+        messageErrorLogger.error(err)
         if (replyTopic) {
           this.emit(replyTopic, undefined, err)
         }
@@ -252,6 +260,7 @@ const defaultOptions = {
   logger: console,
   logNatsEvents: true,
   logMessageEvents: true,
+  logMessageErrors: true,
 }
 
 class Counter {
@@ -284,4 +293,5 @@ const emptyFunc = () => {}
 
 const dumbLogger = {
   info: emptyFunc,
+  error: emptyFunc,
 }
