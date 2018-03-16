@@ -39,6 +39,9 @@ module.exports = class NatsEx {
         process.exit(1)
       }
     }
+
+    this._handlingCounter = new Counter()
+    this._subscriptions = []
   }
 
   connect () {
@@ -71,8 +74,20 @@ module.exports = class NatsEx {
     })
   }
 
+  // gracefully close
   close () {
-    return this._nats.close()
+    this._subscriptions.forEach(sid => this._nats.unsubscribe(sid))
+    return new Promise((resolve, reject) => {
+      this._handlingCounter.watch(count => {
+        if (count === 0) {
+          // close in next tick to allow final response to be sent
+          setTimeout(() => {
+            this._nats.close()
+            resolve()
+          })
+        }
+      })
+    })
   }
 
   /**
@@ -93,7 +108,8 @@ module.exports = class NatsEx {
 
     const topic = `method.${name}`
 
-    nats.subscribe(topic, {queue: queueGroup}, async (reqStr, replyTo) => {
+    const sid = nats.subscribe(topic, {queue: queueGroup}, async (reqStr, replyTo) => {
+      this._handlingCounter.inc()
       let requestId = ''
       try {
         const req = Protocol.parse(reqStr)
@@ -117,7 +133,9 @@ module.exports = class NatsEx {
           nats.publish(replyTo, resStr)
         }
       }
+      this._handlingCounter.dec()
     })
+    this._subscriptions.push(sid)
   }
 
   /**
@@ -223,7 +241,8 @@ module.exports = class NatsEx {
 
     const topic = `event.${name}`
 
-    nats.subscribe(topic, {queue: queueGroup}, async (msgStr) => {
+    const sid = nats.subscribe(topic, {queue: queueGroup}, async (msgStr) => {
+      this._handlingCounter.inc()
       try {
         const msg = Protocol.parse(msgStr)
         let {data} = msg
@@ -233,7 +252,9 @@ module.exports = class NatsEx {
       catch (err) {
         eventErrorHandler(err)
       }
+      this._handlingCounter.dec()
     })
+    this._subscriptions.push(sid)
   }
 
   /**
@@ -254,7 +275,8 @@ module.exports = class NatsEx {
 
     const topic = `event.${name}`
 
-    nats.subscribe(topic, async (msgStr) => {
+    const sid = nats.subscribe(topic, async (msgStr) => {
+      this._handlingCounter.inc()
       try {
         const msg = Protocol.parse(msgStr)
         let {data} = msg
@@ -264,7 +286,9 @@ module.exports = class NatsEx {
       catch (err) {
         eventErrorHandler(err)
       }
+      this._handlingCounter.dec()
     })
+    this._subscriptions.push(sid)
   }
 }
 
@@ -308,3 +332,29 @@ const defaultOptions = {
 }
 
 const genId = uuid.v4
+
+class Counter {
+  constructor () {
+    this._count = 0
+    this._listeners = []
+  }
+
+  inc () {
+    ++this._count
+    this._trigger()
+  }
+
+  dec () {
+    --this._count
+    this._trigger()
+  }
+
+  watch (listener) {
+    this._listeners.push(listener)
+    listener(this._count)
+  }
+
+  _trigger () {
+    this._listeners.forEach(listener => listener(this._count))
+  }
+}

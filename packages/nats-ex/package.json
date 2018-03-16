@@ -1,6 +1,6 @@
 {
   "name": "nats-ex",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Simplify communications on NATS.",
   "main": "index.js",
   "keywords": [

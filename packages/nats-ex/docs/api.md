@@ -46,10 +46,10 @@ Connect to NATS server.
 
 ### $.close
 
-Disconnect from the NATS server.
+Gracefully disconnect from the NATS server.
 
 ```
-() => Void
+() => Promise => Void
 ```
 
 ### $.registerMethod

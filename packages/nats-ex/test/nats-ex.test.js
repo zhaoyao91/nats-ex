@@ -1,10 +1,10 @@
 const sleep = require('sleep-promise')
 const uuid = require('uuid')
+const {NatsEx, NatsExError, Protocol, connect} = require('../index')
 
 function emptyFunc () {}
 
 describe('nats-ex', function () {
-  const {NatsEx, NatsExError, Protocol} = require('../index')
 
   let natsEx = null
   let natsEx2 = null
@@ -39,10 +39,12 @@ describe('nats-ex', function () {
     ])
   })
 
-  afterAll(() => {
-    natsEx.close()
-    natsEx2.close()
-    natsEx3.close()
+  afterAll(async () => {
+    await Promise.all([
+      natsEx.close(),
+      natsEx2.close(),
+      natsEx3.close(),
+    ])
   })
 
   describe('method', function () {
@@ -247,6 +249,44 @@ describe('nats-ex', function () {
       await sleep(10)
       natsEx.emitEvent(name, eventData)
       await sleep(10)
+    })
+  })
+
+  describe('gracefully close', function () {
+    it('should close after final handling finished', async () => {
+      expect.assertions(6)
+
+      const natsEx = await connect({
+        logMethodError: false,
+        logEvents: false,
+        methodErrorHandler: emptyFunc,
+        eventErrorHandler: emptyFunc,
+      })
+      const name = uuid.v4()
+
+      natsEx.registerMethod(name + '.method', async () => {
+        expect(true).toBe(true)
+        await sleep(99)
+        expect(true).toBe(true)
+        return 'Hello Baby'
+      })
+      natsEx.listenEvent(name + '.event', async () => {
+        expect(true).toBe(true)
+        await sleep(100)
+        expect(true).toBe(true)
+      })
+      natsEx.listenEvent(name + '.broadcast', async () => {
+        expect(true).toBe(true)
+        await sleep(101)
+        expect(true).toBe(true)
+      })
+
+      natsEx.callMethod(name + '.method')
+      natsEx.emitEvent(name + '.event')
+      natsEx.emitEvent(name + '.broadcast')
+
+      await sleep(10)
+      await natsEx.close()
     })
   })
 })
