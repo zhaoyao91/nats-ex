@@ -12,13 +12,16 @@ describe('validate', function () {
 
   beforeAll(async () => {
     natsEx = await connect({
-      methodErrorHandler: () => {}
+      queueGroup: 'X',
+      logNatsEvents: false,
+      logMessageEvents: false,
+      logMessageErrors: false,
     })
-    natsEx.registerMethod('validate', validate(schema), (data) => data)
+    natsEx.on('validate', (data) => data, {validator: validate(schema)})
   })
 
-  afterAll(() => {
-    natsEx.close()
+  afterAll(async () => {
+    await natsEx.close()
   })
 
   it('should pass', async () => {
@@ -26,7 +29,7 @@ describe('validate', function () {
       name: 'Bob',
       age: '20'
     }
-    const result = await natsEx.callMethod('validate', data)
+    const result = await natsEx.call('validate', data)
     expect(result.name).toBe('Bob')
     expect(result.age).toBe(20)
   })
@@ -38,7 +41,7 @@ describe('validate', function () {
       age: 'Twenty'
     }
     try {
-      const result = await natsEx.callMethod('validate', data)
+      const result = await natsEx.call('validate', data)
     }
     catch (err) {
       expect(err.name).toBe('NatsExError')
