@@ -116,14 +116,14 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (topic, data, Options?) => Promise => Any
+   * (topic, data, Options?) => {requestId} & Promise => Any
    *
    * Options ~ {
    *   timeout: Number = 60000, // default to 1 min
    *   returnResponse: Boolean = false
    * }
    */
-  async call (topic, data, options) {
+  call (topic, data, options) {
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
     const request = buildMessage({data})

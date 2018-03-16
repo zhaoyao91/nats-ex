@@ -152,4 +152,15 @@ describe('NatsEx', () => {
     await natsEx.close()
     expect(flag).toBe(true)
   })
+
+  test('call return requestId', (done) => {
+    let requestId = null
+    natsEx.on('check-requestId', (data, request) => {
+      expect(typeof requestId).toBe('string')
+      expect(request.id).toBe(requestId)
+      done()
+    })
+    const promise = natsEx.call('check-requestId')
+    requestId = promise.requestId
+  })
 })

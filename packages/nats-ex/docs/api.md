@@ -65,7 +65,7 @@ Emit a message.
 Send a request message and wait for response message.
 
 ```
-(topic, data, Options?) => Promise => Any
+(topic, data, Options?) => {requestId} & Promise => Any
 
 Options ~ {
   timeout: Number = 60000, // default to 1 min
