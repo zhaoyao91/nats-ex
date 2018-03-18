@@ -196,9 +196,11 @@ module.exports = class NatsEx {
         const parsedMessage = parseMessage(messageString)
         const {raw: rawMessage, formatted: message} = parsedMessage
         messageEventLogger.info('message received', {topic: receivedTopic, message: rawMessage})
-        let {data} = message
+        let {id, data} = message
         if (validator) data = validator(data)
+        messageEventLogger.info('handling message...', {id})
         const result = await handler(data, message, receivedTopic)
+        messageEventLogger.info('message handled', clean({id, result}))
         if (replyTopic) {
           this.emit(replyTopic, result)
         }
