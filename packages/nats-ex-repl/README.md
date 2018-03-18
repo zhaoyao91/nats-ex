@@ -21,7 +21,7 @@ Then in the repl:
 ```
 emit('hello')
 
-call('echo', 'my input')((err, data) => {...}) 
+justCall('echo', 'my input') 
 ```
 
 ## Command Options
@@ -29,7 +29,6 @@ call('echo', 'my input')((err, data) => {...})
 - start = true - if false, it won't create natsEx automatically. you can use `connect` to connect nats manually in the repl
 - url = "nats://localhost:4222"
 - queueGroup: String?
-- logger: 'console' | 'json' = 'console'
 - logMessageEvents = false
 - logMessageErrors = true
 
@@ -43,14 +42,8 @@ There are several variables in the repl context:
 - [Protocol](../nats-ex/docs/api.md#protocol)
 - [on](../nats-ex/docs/api.md#$.on)
 - [emit](../nats-ex/docs/api.md#$.emit)
-- [call](../nats-ex/docs/api.md#$.call) - the return value are different for repl convenient
-  ```
-  (topic, data, options) => CallbackReceiver
-  
-  CallbackReceiver ~ {requestId} & (Callback) => Void
-  
-  Callback ~ (error, data) => requestId
-  ```
+- [call](../nats-ex/docs/api.md#$.call)
+- justCall - `(topic, data, options) => requestId`, similar to `call`, but just print result and error
 
 ## License
 

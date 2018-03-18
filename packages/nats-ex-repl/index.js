@@ -6,19 +6,19 @@ const loadReplHistory = require('repl.history')
 const path = require('path')
 const args = require('node-args')
 const defaults = require('lodash.defaults')
+const util = require('util')
+const colors = require('colors')
 
 // init args
 const actualArgs = defaults(args, {
   start: true,
   url: 'nats://localhost:4222',
-  logger: 'console',
   logMessageEvents: false,
   logMessageErrors: true,
 })
 
 // setup logger
 let logger = console
-if (actualArgs.logger === 'json') logger = require('simple-json-logger')
 
 function errorHandler (err) {
   logger.error(err)
@@ -59,7 +59,8 @@ if (actualArgs.start) {
   }
   connect(options).then(natsEx => startRepl({
     emit: natsEx.emit.bind(natsEx),
-    call: buildReplCall(natsEx),
+    call: natsEx.call.bind(natsEx),
+    justCall: buildJustCall(natsEx),
     on: natsEx.on.bind(natsEx),
   })).catch(errorHandler)
 }
@@ -67,23 +68,17 @@ else {
   startRepl()
 }
 
-/**
- * async func is not convenient in repl
- * let it receive optional callback
- */
-function buildReplCall (natsEx) {
+function buildJustCall (natsEx) {
   return function (topic, data, options) {
-    let callback = null
-    const callbackReceiver = (cb) => {
-      callback = cb
-      return callbackReceiver.requestId
-    }
     const promise = natsEx.call(topic, data, options)
-    callbackReceiver.requestId = promise.requestId
-    promise.then(x => callback && callback(null, x)).catch(err => {
-      if (callback) callback(err)
-      else logger.error(err)
+    const requestId = promise.requestId
+    promise.then(data => {
+      logger.info(requestId.cyan)
+      logger.info(util.inspect(data, {depth: null}).cyan)
+    }).catch(err => {
+      logger.error(requestId.red)
+      logger.error(util.inspect(err, {depth: null}).red)
     })
-    return callbackReceiver
+    return requestId
   }
 }
