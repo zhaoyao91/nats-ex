@@ -44,13 +44,11 @@ const defaultContext = {
 if (actualArgs.start) {
   const {
     url,
-    queueGroup,
     logMessageEvents,
     logMessageErrors,
   } = actualArgs
   const options = {
     url,
-    queueGroup,
     logger,
     logMessageErrors,
     logMessageEvents,

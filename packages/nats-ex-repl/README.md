@@ -28,7 +28,6 @@ justCall('echo', 'my input')
 
 - start = true - if false, it won't create natsEx automatically. you can use `connect` to connect nats manually in the repl
 - url = "nats://localhost:4222"
-- queueGroup: String?
 - logMessageEvents = false
 - logMessageErrors = true
 
