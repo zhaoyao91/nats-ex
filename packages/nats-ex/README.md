@@ -23,7 +23,6 @@ const {connect} = require('nats-ex')
 // connect to nats
 const natsEx = await connect({
   url: 'nats://localhost:4222',
-  queueGroup: 'X'
 })
 
 // subscribe a topic

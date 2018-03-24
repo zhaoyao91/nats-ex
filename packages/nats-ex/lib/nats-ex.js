@@ -9,7 +9,6 @@ module.exports = class NatsEx {
    *
    * Options ~ {
    *   url: String = nats://localhost:4222,
-   *   queueGroup: String = null,
    *   reconnectOnStart: Boolean = false
    *   reconnectOnDisconnect: Boolean = true
    *   logger: Object = console,
@@ -181,7 +180,7 @@ module.exports = class NatsEx {
    *
    * Options ~ {
    *   validator: Validator?
-   *   formGroup: Boolean = true,
+   *   queue?: String, // message load balance queue group name
    * }
    *
    * Validator ~ (data) => data // throw NatsExError if validation failed
@@ -192,12 +191,11 @@ module.exports = class NatsEx {
     const messageErrorLogger = this._messageErrorLogger
     const subscriptions = this._subscriptions
     const handlingCounter = this._handlingCounter
-    const {queueGroup} = this._options
     const {
       validator,
-      formGroup = true,
+      queue,
     } = clean(options)
-    const sid = nats.subscribe(topic, {queue: formGroup ? queueGroup : undefined}, async (messageString, replyTopic, receivedTopic) => {
+    const sid = nats.subscribe(topic, {queue}, async (messageString, replyTopic, receivedTopic) => {
       handlingCounter.inc()
       let messageId = undefined
       try {
@@ -265,7 +263,6 @@ function parseReconnectOption (reconnectOnStart, reconnectOnDisconnect) {
 
 const defaultOptions = {
   url: 'nats://localhost:4222',
-  queueGroup: null,
   reconnectOnStart: false,
   reconnectOnDisconnect: true,
   logger: console,

@@ -43,7 +43,6 @@ Options ~ see NatsEx.constructor.options
 
 Options ~ {
   url: String = nats://localhost:4222,
-  queueGroup: String = null,
   reconnectOnStart: Boolean = false
   reconnectOnDisconnect: Boolean = true
   logger: Object = console,
@@ -107,7 +106,7 @@ Handler ~ (data, ExtendedMessage, receivedTopic) => Promise => Any
 
 Options ~ {
   validator: Validator?
-  formGroup: Boolean = true, // if true listeners on this natsEx (queueGroup) will form a queue group so listeners of same topics will be load balanced 
+  queue?: String, // message load balance queue group name 
 }
 
 Validator ~ (data) => data // throw NatsExError if validation failed

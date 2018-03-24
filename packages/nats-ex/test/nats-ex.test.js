@@ -6,7 +6,6 @@ describe('NatsEx', () => {
 
   beforeEach(async () => {
     natsEx = await connect({
-      queueGroup: 'X',
       logNatsEvents: false,
       logMessageEvents: false,
       logMessageErrors: false,
@@ -118,22 +117,23 @@ describe('NatsEx', () => {
     }
   })
 
-  test('form group', async () => {
-    expect.assertions(1)
-    natsEx.on('hi', () => expect(1).toBe(1))
-    natsEx.on('hi', () => expect(1).toBe(1))
-    natsEx.on('hi', () => expect(1).toBe(1))
+  test('form queue group', async () => {
+    const count = {
+      x: 0,
+      y: 0,
+      void: 0,
+    }
+    natsEx.on('hi', () => count.x++, {queue: 'x'})
+    natsEx.on('hi', () => count.x++, {queue: 'x'})
+    natsEx.on('hi', () => count.y++, {queue: 'y'})
+    natsEx.on('hi', () => count.y++, {queue: 'y'})
+    natsEx.on('hi', () => count.void++)
+    natsEx.on('hi', () => count.void++)
     natsEx.emit('hi')
     await sleep(10)
-  })
-
-  test('not form group', async () => {
-    expect.assertions(3)
-    natsEx.on('hi', () => expect(1).toBe(1), {formGroup: false})
-    natsEx.on('hi', () => expect(1).toBe(1), {formGroup: false})
-    natsEx.on('hi', () => expect(1).toBe(1), {formGroup: false})
-    natsEx.emit('hi')
-    await sleep(10)
+    expect(count.x).toBe(1)
+    expect(count.y).toBe(1)
+    expect(count.void).toBe(2)
   })
 
   test('graceful close', async () => {
@@ -164,7 +164,7 @@ describe('NatsEx', () => {
     requestId = promise.requestId
   })
 
-  test('emit with from id',  (done) => {
+  test('emit with from id', (done) => {
     const fakeFromMessage = '123'
     natsEx.on('ping', (data, message) => {
       expect(message.fromId).toBe(fakeFromMessage)
