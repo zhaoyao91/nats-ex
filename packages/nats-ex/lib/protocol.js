@@ -3,7 +3,7 @@ const EJSON = require('ejson')
 const uuid = require('uuid')
 const clean = require('clean-options')
 
-const version = 2
+const version = 3
 
 const errorCodes = {
   'PROTOCOL_ERROR': 1,
@@ -57,6 +57,7 @@ function formatMessageObject (msgObj) {
   return clean({
     version: msgObj.v,
     id: msgObj.id,
+    fromId: msgObj.fid,
     timestamp: msgObj.ts,
     data: msgObj.data,
     error: msgObj.err ? clean({
@@ -80,14 +81,15 @@ function parseMessage (msgStr) {
 }
 
 /**
- * ({data?, error?}) => {id, string}
+ * ({data?, error?, fromId?}) => {id, string}
  */
-function buildMessage ({data, error}) {
+function buildMessage ({data, error, fromId}) {
   const id = uuid.v4()
   const object = clean({
     v: version,
     ts: (new Date()).getTime(),
     id,
+    fid: fromId,
     data: data,
     err: !!error ? clean({
       code: error.code || errorCodes.INTERNAL_ERROR,

@@ -104,12 +104,17 @@ module.exports = class NatsEx {
   }
 
   /**
-   * (topic, data, error?) => messageId
+   * (topic, data, Options?) => messageId
+   *
+   * Options ~ {
+   *   error?,
+   *   fromId?,
+   * }
    */
-  emit (topic, data, error) {
+  emit (topic, data, options) {
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
-    const message = buildMessage({data, error})
+    const message = buildMessage({...options, data})
     nats.publish(topic, message.string)
     messageEventLogger.info('message sent', {topic, message: message.object})
     return message.id
@@ -120,17 +125,19 @@ module.exports = class NatsEx {
    *
    * Options ~ {
    *   timeout: Number = 60000, // default to 1 min
-   *   returnResponse: Boolean = false
+   *   returnResponse: Boolean = false,
+   *   fromId?: String
    * }
    */
   call (topic, data, options) {
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
-    const request = buildMessage({data})
     const {
       timeout = 60000,
       returnResponse = false,
+      fromId,
     } = clean(options)
+    const request = buildMessage({data, fromId})
     const promise = new Promise((resolve, reject) => {
       nats.requestOne(topic, request.string, {}, timeout, (responseString) => {
         if (responseString instanceof NATS.NatsError) {
@@ -192,23 +199,25 @@ module.exports = class NatsEx {
     } = clean(options)
     const sid = nats.subscribe(topic, {queue: formGroup ? queueGroup : undefined}, async (messageString, replyTopic, receivedTopic) => {
       handlingCounter.inc()
+      let messageId = undefined
       try {
         const parsedMessage = parseMessage(messageString)
         const {raw: rawMessage, formatted: message} = parsedMessage
+        messageId = message.id
         messageEventLogger.info('message received', {topic: receivedTopic, message: rawMessage})
-        let {id, data} = message
-        if (validator) data = validator(data)
-        messageEventLogger.info('handling message...', {id})
+        const data = validator ? validator(message.data) : message.data
+        messageEventLogger.info('handling message...', {id: messageId})
+        extendMessageWithMethods(message, this)
         const result = await handler(data, message, receivedTopic)
-        messageEventLogger.info('message handled', clean({id, result}))
+        messageEventLogger.info('message handled', clean({id: messageId, result}))
         if (replyTopic) {
-          this.emit(replyTopic, result)
+          this.emit(replyTopic, result, {fromId: messageId})
         }
       }
       catch (err) {
         messageErrorLogger.error(err)
         if (replyTopic) {
-          this.emit(replyTopic, undefined, err)
+          this.emit(replyTopic, undefined, {error: err, fromId: messageId})
         }
       }
       handlingCounter.dec()
@@ -296,4 +305,13 @@ const emptyFunc = () => {}
 const dumbLogger = {
   info: emptyFunc,
   error: emptyFunc,
+}
+
+function extendMessageWithMethods (message, natsEx) {
+  message.emit = function (topic, data, options) {
+    return natsEx.emit(topic, data, {fromId: message.id, ...options})
+  }
+  message.call = function (topic, data, options) {
+    return natsEx.call(topic, data, {fromId: message.id, ...options})
+  }
 }

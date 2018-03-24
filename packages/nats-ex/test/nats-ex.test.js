@@ -163,4 +163,59 @@ describe('NatsEx', () => {
     const promise = natsEx.call('check-requestId')
     requestId = promise.requestId
   })
+
+  test('emit with from id',  (done) => {
+    const fakeFromMessage = '123'
+    natsEx.on('ping', (data, message) => {
+      expect(message.fromId).toBe(fakeFromMessage)
+      done()
+    })
+    natsEx.emit('ping', undefined, {fromId: fakeFromMessage})
+  })
+
+  test('call with from id', async () => {
+    const fakeFromMessage = '123'
+    natsEx.on('echo', (data, message) => {
+      return message.fromId
+    })
+    const result = await natsEx.call('echo', undefined, {fromId: fakeFromMessage})
+    expect(result).toBe(fakeFromMessage)
+  })
+
+  test('call response with from id', async () => {
+    natsEx.on('ping', () => {
+      return 'pong'
+    })
+    const promise = natsEx.call('ping', undefined, {returnResponse: true})
+    const {requestId} = promise
+    const response = await promise
+    expect(response.data).toBe('pong')
+    expect(response.fromId).toBe(requestId)
+  })
+
+  test('using message.emit will attach the from id automatically', (done) => {
+    let firstMessageId = null
+    natsEx.on('e1', (data, message) => {
+      message.emit('e2')
+    })
+    natsEx.on('e2', (data, message) => {
+      expect(message.fromId).toBeTruthy()
+      expect(message.fromId).toBe(firstMessageId)
+      done()
+    })
+    firstMessageId = natsEx.emit('e1')
+  })
+
+  test('using message.call will attach the from id automatically', (done) => {
+    let firstMessageId = null
+    natsEx.on('e1', (data, message) => {
+      message.call('e2')
+    })
+    natsEx.on('e2', (data, message) => {
+      expect(message.fromId).toBeTruthy()
+      expect(message.fromId).toBe(firstMessageId)
+      done()
+    })
+    firstMessageId = natsEx.call('e1').requestId
+  })
 })

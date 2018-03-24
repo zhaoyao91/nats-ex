@@ -17,6 +17,23 @@ Create a NatsEx instance and connect it to NATS server.
 Options ~ see NatsEx.constructor.options
 ```
 
+## Message
+
+```
+{
+  version: Number,
+  id: String,
+  fromId?: String,
+  timestamp: Number,
+  data?: Any,
+  error?: {
+    code: Number,
+    message?: String,
+    details?: Any, 
+  }
+}
+```
+
 ## NatsEx
 
 ### $.constructor
@@ -57,7 +74,12 @@ Gracefully disconnect from the NATS server.
 Emit a message.
 
 ```
-(topic, data, error?) => messageId
+(topic, data, Options) => messageId
+
+Options ~ {
+  error?: Error,
+  fromId?: String,
+}
 ```
 
 ### $.call
@@ -65,9 +87,10 @@ Emit a message.
 Send a request message and wait for response message.
 
 ```
-(topic, data, Options?) => {requestId} & Promise => Any
+(topic, data, Options?) => {requestId} & Promise => Any | Message
 
 Options ~ {
+  fromId?: String,
   timeout: Number = 60000, // default to 1 min
   returnResponse: Boolean = false, // if true, it will return the response message instead of the data of the response
 }
@@ -80,7 +103,7 @@ Subscribe some kind of message.
 ```
 (topic, Handler, Options?) => Void
 
-Handler ~ (data, message, receivedTopic) => Promise => Any
+Handler ~ (data, ExtendedMessage, receivedTopic) => Promise => Any
 
 Options ~ {
   validator: Validator?
@@ -88,6 +111,11 @@ Options ~ {
 }
 
 Validator ~ (data) => data // throw NatsExError if validation failed
+
+ExtendedMessage ~ Message & {
+  emit: Function, // the same as $.emit, with `fromId` automatically set
+  call: Function, // the same as $.call, with `fromId` automatically set
+}
 ```
 
 ## NatsExError

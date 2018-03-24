@@ -2,7 +2,7 @@
 
 ## Status
 
-- Version: 2
+- Version: 3
 - Based on: 
   - NATS
   - EJSON
@@ -11,8 +11,9 @@
 
 ```
 {
-  v: 2, // protocol version
+  v: 3, // protocol version
   id: String, // message id,
+  fid?: String, // from message id  
   ts: Number, // timestamp
   data?: Any, // payload
   err?: {
