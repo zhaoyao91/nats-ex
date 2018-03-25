@@ -11,7 +11,7 @@
 
 ```
 {
-  v: 3, // protocol version
+  v: 4, // protocol version
   id: String, // message id,
   fid?: String, // from message id  
   ts: Number, // timestamp
