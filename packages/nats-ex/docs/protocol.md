@@ -2,10 +2,10 @@
 
 ## Status
 
-- Version: 3
+- Version: 4
 - Based on: 
   - NATS
-  - EJSON
+  - JSON
 
 ## Message Schema
 
@@ -27,5 +27,4 @@
 ## Error Codes
 
 - 1 - PROTOCOL_ERROR
-- 2 - VALIDATION_ERROR
-- 3 - INTERNAL_ERROR
+- 2 - INTERNAL_ERROR

@@ -2,12 +2,11 @@ const NatsExError = require('./nats-ex-error')
 const uuid = require('uuid')
 const clean = require('clean-options')
 
-const version = 3
+const version = 4
 
 const errorCodes = {
   'PROTOCOL_ERROR': 1,
-  'VALIDATION_ERROR': 2,
-  'INTERNAL_ERROR': 3,
+  'INTERNAL_ERROR': 2,
 }
 
 // message string

@@ -105,11 +105,8 @@ Subscribe some kind of message.
 Handler ~ (data, ExtendedMessage, receivedTopic) => Promise => Any
 
 Options ~ {
-  validator: Validator?
   queue?: String, // message load balance queue group name 
 }
-
-Validator ~ (data) => data // throw NatsExError if validation failed
 
 ExtendedMessage ~ Message & {
   emit: Function, // the same as $.emit, with `fromId` automatically set
