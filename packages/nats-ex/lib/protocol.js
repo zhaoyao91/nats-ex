@@ -1,6 +1,5 @@
 const NatsExError = require('./nats-ex-error')
 const uuid = require('uuid')
-const clean = require('clean-options')
 
 const version = 4
 
@@ -33,13 +32,14 @@ function parseMessageString (msgStr) {
  * (messageObject) => void
  */
 function checkMessageObject (msgObj) {
-  if (
-    typeof msgObj !== 'object'
-    || msgObj === null
-    || msgObj.v !== version
-    || typeof msgObj.id !== 'string'
-    || typeof msgObj.ts !== 'number'
-  ) {
+  const valid =
+    typeof msgObj === 'object' &&
+    msgObj !== null &&
+    msgObj.v === version &&
+    typeof msgObj.id === 'string' &&
+    typeof msgObj.ts === 'number'
+
+  if (!valid) {
     throw new NatsExError(
       errorCodes.PROTOCOL_ERROR,
       'PROTOCOL_ERROR: Invalid message object',
@@ -52,18 +52,18 @@ function checkMessageObject (msgObj) {
  * (messageObject) => formattedMessageObject
  */
 function formatMessageObject (msgObj) {
-  return clean({
+  return {
     version: msgObj.v,
     id: msgObj.id,
     fromId: msgObj.fid,
     timestamp: msgObj.ts,
     data: msgObj.data,
-    error: msgObj.err ? clean({
+    error: msgObj.err ? {
       code: msgObj.err.code,
       message: msgObj.err.msg,
       details: msgObj.err.det,
-    }) : undefined
-  })
+    } : undefined
+  }
 }
 
 /**
@@ -82,21 +82,20 @@ function parseMessage (msgStr) {
  * ({data?, error?, fromId?}) => {id, string}
  */
 function buildMessage ({data, error, fromId}) {
-  const id = uuid.v4()
-  const object = clean({
+  const object = {
     v: version,
     ts: (new Date()).getTime(),
-    id,
+    id: uuid.v4(),
     fid: fromId,
     data: data,
-    err: !!error ? clean({
+    err: !!error ? {
       code: error.code || errorCodes.INTERNAL_ERROR,
       msg: error.message,
       det: error.details
-    }) : undefined
-  })
+    } : undefined
+  }
   const string = JSON.stringify(object)
-  return {id, object, string}
+  return {object, string}
 }
 
 module.exports = {

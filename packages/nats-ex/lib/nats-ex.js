@@ -116,7 +116,7 @@ module.exports = class {
     const message = buildMessage({...options, data})
     nats.publish(topic, message.string)
     messageEventLogger.info('message sent', {topic, message: message.object})
-    return message.id
+    return message.object.id
   }
 
   /**
@@ -169,7 +169,7 @@ module.exports = class {
       })
       messageEventLogger.info('message sent', {type: 'request', topic, message: request.object})
     })
-    promise.requestId = request.id
+    promise.requestId = request.object.id
     return promise
   }
 
