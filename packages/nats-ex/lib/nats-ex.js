@@ -3,7 +3,7 @@ const NatsExError = require('./nats-ex-error')
 const {parseMessage, buildMessage} = require('./protocol')
 const clean = require('clean-options')
 
-module.exports = class NatsEx {
+module.exports = class {
   /**
    * (Options) => NatsEx
    *
@@ -173,17 +173,14 @@ module.exports = class NatsEx {
     return promise
   }
 
-  /**
+  /*
    * (topic, Handler, Options?) => Void
    *
    * Handler ~ (data, message, receivedTopic) => Promise => Any
    *
    * Options ~ {
-   *   validator: Validator?
    *   queue?: String, // message load balance queue group name
    * }
-   *
-   * Validator ~ (data) => data // throw NatsExError if validation failed
    */
   on (topic, handler, options) {
     const nats = this._nats
@@ -192,7 +189,6 @@ module.exports = class NatsEx {
     const subscriptions = this._subscriptions
     const handlingCounter = this._handlingCounter
     const {
-      validator,
       queue,
     } = clean(options)
     const sid = nats.subscribe(topic, {queue}, async (messageString, replyTopic, receivedTopic) => {
@@ -201,12 +197,11 @@ module.exports = class NatsEx {
       try {
         const parsedMessage = parseMessage(messageString)
         const {raw: rawMessage, formatted: message} = parsedMessage
-        messageId = message.id
         messageEventLogger.info('message received', {topic: receivedTopic, message: rawMessage})
-        const data = validator ? validator(message.data) : message.data
+        messageId = message.id
         messageEventLogger.info('handling message...', {id: messageId})
         extendMessageWithMethods(message, this)
-        const result = await handler(data, message, receivedTopic)
+        const result = await handler(message.data, message, receivedTopic)
         messageEventLogger.info('message handled', clean({id: messageId, result}))
         if (replyTopic) {
           this.emit(replyTopic, result, {fromId: messageId})

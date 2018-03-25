@@ -4,9 +4,8 @@ Simplify communications on NATS.
 
 ## Features
 
-- EJSON-based message protocol (support transfer `Date` and `Buffer` directly)
+- JSON-based message protocol
 - Auto transfer errors
-- Input validation
 - ES6 async/await api
 
 ## Installation

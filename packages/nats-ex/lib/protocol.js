@@ -1,5 +1,4 @@
 const NatsExError = require('./nats-ex-error')
-const EJSON = require('ejson')
 const uuid = require('uuid')
 const clean = require('clean-options')
 
@@ -20,7 +19,7 @@ const errorCodes = {
  */
 function parseMessageString (msgStr) {
   try {
-    return EJSON.parse(msgStr)
+    return JSON.parse(msgStr)
   }
   catch (err) {
     throw new NatsExError(
@@ -97,7 +96,7 @@ function buildMessage ({data, error, fromId}) {
       det: error.details
     }) : undefined
   })
-  const string = EJSON.stringify(object)
+  const string = JSON.stringify(object)
   return {id, object, string}
 }
 

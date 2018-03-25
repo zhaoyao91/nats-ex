@@ -15,12 +15,11 @@
   "license": "MIT",
   "dependencies": {
     "clean-options": "^1.0.0",
-    "ejson": "^2.1.2",
     "nats": "^0.8.4",
     "uuid": "^3.2.1"
   },
   "devDependencies": {
-    "jest": "^22.4.2",
+    "jest": "^22.4.3",
     "sleep-promise": "^2.0.0"
   }
 }

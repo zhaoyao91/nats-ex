@@ -89,34 +89,6 @@ describe('NatsEx', () => {
     natsEx.emit('say.bob', 'Bob')
   })
 
-  test('validator', async () => {
-    expect.assertions(5)
-
-    function bobValidator (data) {
-      if (data !== 'Bob') throw new NatsExError(
-        Protocol.errorCodes.VALIDATION_ERROR,
-        'VALIDATION_ERROR: Invalid data',
-        data
-      )
-      else return 'Alice'
-    }
-
-    natsEx.on('change-bob', (data) => data, {
-      validator: bobValidator
-    })
-    const alice = await natsEx.call('change-bob', 'Bob')
-    expect(alice).toBe('Alice')
-    try {
-      await natsEx.call('change-bob', 'Lucy')
-    }
-    catch (err) {
-      expect(err).toBeInstanceOf(NatsExError)
-      expect(err.code).toBe(Protocol.errorCodes.VALIDATION_ERROR)
-      expect(err.message).toBe('VALIDATION_ERROR: Invalid data')
-      expect(err.details).toBe('Lucy')
-    }
-  })
-
   test('form queue group', async () => {
     const count = {
       x: 0,

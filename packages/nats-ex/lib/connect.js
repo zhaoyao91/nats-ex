@@ -1,6 +1,6 @@
 const NatsEx = require('./nats-ex')
 
-module.exports = async function connect(options) {
+module.exports = async function (options) {
   const natsEx = new NatsEx(options)
   await natsEx.connect()
   return natsEx
