@@ -92,11 +92,8 @@ module.exports = class {
     return new Promise((resolve, reject) => {
       this._handlingCounter.watch(count => {
         if (count === 0) {
-          // close in next tick to allow final response to be sent
-          setTimeout(() => {
-            this._nats.close()
-            resolve()
-          })
+          this._nats.close()
+          resolve()
         }
       })
     })
@@ -131,13 +128,15 @@ module.exports = class {
   call (topic, data, options) {
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
+    const handlingCounter = this._handlingCounter
     const {
       timeout = 60000,
       returnResponse = false,
       fromId,
     } = clean(options)
     const request = buildMessage({data, fromId})
-    const promise = new Promise((resolve, reject) => {
+    let promise = new Promise((resolve, reject) => {
+      handlingCounter.inc()
       nats.requestOne(topic, request.string, {}, timeout, (responseString) => {
         if (responseString instanceof NATS.NatsError) {
           reject(responseString)
@@ -168,6 +167,13 @@ module.exports = class {
         }
       })
       messageEventLogger.info('message sent', {type: 'request', topic, message: request.object})
+    })
+    promise = promise.then(result => {
+      handlingCounter.dec()
+      return result
+    }).catch(err => {
+      handlingCounter.dec()
+      throw err
     })
     promise.requestId = request.object.id
     return promise

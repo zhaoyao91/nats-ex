@@ -125,6 +125,23 @@ describe('NatsEx', () => {
     expect(flag).toBe(true)
   })
 
+  test('receive last message after close', async () => {
+    const natsEx = await connect({
+      logNatsEvents: false,
+      logMessageEvents: false,
+      logMessageErrors: false,
+    })
+    natsEx.on('long-echo', async (data) => {
+      await sleep(1000)
+      return data
+    })
+
+    setTimeout(() => {natsEx.close()}, 500)
+
+    const result = await natsEx.call('long-echo', 'Bob')
+    expect(result).toBe('Bob')
+  })
+
   test('call return requestId', (done) => {
     let requestId = null
     natsEx.on('check-requestId', (data, request) => {
