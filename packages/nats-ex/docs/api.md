@@ -48,7 +48,8 @@ Options ~ {
   logger: Object = console,
   logNatsEvents: Boolean = true,
   logMessageEvents: Boolean = true,
-  natsErrorHandler?: (error) => Void
+  natsErrorHandler?: (error) => Void,
+  namespace?: String
 }
 ```
 
@@ -78,6 +79,7 @@ Emit a message.
 Options ~ {
   error?: Error,
   fromId?: String,
+  withNamespace? = true
 }
 ```
 
@@ -92,6 +94,7 @@ Options ~ {
   fromId?: String,
   timeout: Number = 60000, // default to 1 min
   returnResponse: Boolean = false, // if true, it will return the response message instead of the data of the response
+  withNamespace? = true
 }
 ```
 
@@ -105,7 +108,8 @@ Subscribe some kind of message.
 Handler ~ (data, ExtendedMessage, receivedTopic) => Promise => Any
 
 Options ~ {
-  queue?: String, // message load balance queue group name 
+  queue?: String, // message load balance queue group name
+  withNamespace? = true
 }
 
 ExtendedMessage ~ Message & {

@@ -14,8 +14,9 @@ module.exports = class {
    *   logger: Object = console,
    *   logNatsEvents: Boolean = true,
    *   logMessageEvents: Boolean = true,
-   *   logMessageErrors: Boolean = true
-   *   natsErrorHandler?: (error) => Void
+   *   logMessageErrors: Boolean = true,
+   *   natsErrorHandler?: (error) => Void,
+   *   namespace?: String
    * }
    */
   constructor (options) {
@@ -105,12 +106,19 @@ module.exports = class {
    * Options ~ {
    *   error?,
    *   fromId?,
+   *   withNamespace? = true
    * }
    */
   emit (topic, data, options) {
+    const {
+      error,
+      fromId,
+      withNamespace = true
+    } = clean(options)
+    if (withNamespace) topic = this._namespaceTopic(topic)
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
-    const message = buildMessage({...options, data})
+    const message = buildMessage({error, fromId, data})
     nats.publish(topic, message.string)
     messageEventLogger.info('message sent', {topic, message: message.object})
     return message.object.id
@@ -122,18 +130,21 @@ module.exports = class {
    * Options ~ {
    *   timeout: Number = 60000, // default to 1 min
    *   returnResponse: Boolean = false,
-   *   fromId?: String
+   *   fromId?: String,
+   *   withNamespace? = true
    * }
    */
   call (topic, data, options) {
-    const nats = this._nats
-    const messageEventLogger = this._messageEventLogger
-    const handlingCounter = this._handlingCounter
     const {
       timeout = 60000,
       returnResponse = false,
       fromId,
+      withNamespace = true,
     } = clean(options)
+    if (withNamespace) topic = this._namespaceTopic(topic)
+    const nats = this._nats
+    const messageEventLogger = this._messageEventLogger
+    const handlingCounter = this._handlingCounter
     const request = buildMessage({data, fromId})
     let promise = new Promise((resolve, reject) => {
       handlingCounter.inc()
@@ -186,17 +197,20 @@ module.exports = class {
    *
    * Options ~ {
    *   queue?: String, // message load balance queue group name
+   *   withNamespace? = true
    * }
    */
   on (topic, handler, options) {
+    const {
+      queue,
+      withNamespace = true
+    } = clean(options)
+    if (withNamespace) topic = this._namespaceTopic(topic)
     const nats = this._nats
     const messageEventLogger = this._messageEventLogger
     const messageErrorLogger = this._messageErrorLogger
     const subscriptions = this._subscriptions
     const handlingCounter = this._handlingCounter
-    const {
-      queue,
-    } = clean(options)
     const sid = nats.subscribe(topic, {queue}, async (messageString, replyTopic, receivedTopic) => {
       handlingCounter.inc()
       let messageId = undefined
@@ -210,18 +224,23 @@ module.exports = class {
         const result = await handler(message.data, message, receivedTopic)
         messageEventLogger.info('message handled', clean({id: messageId, result}))
         if (replyTopic) {
-          this.emit(replyTopic, result, {fromId: messageId})
+          this.emit(replyTopic, result, {fromId: messageId, withNamespace: false})
         }
       }
       catch (err) {
         messageErrorLogger.error(err)
         if (replyTopic) {
-          this.emit(replyTopic, undefined, {error: err, fromId: messageId})
+          this.emit(replyTopic, undefined, {error: err, fromId: messageId, withNamespace: false})
         }
       }
       handlingCounter.dec()
     })
     subscriptions.push(sid)
+  }
+
+  _namespaceTopic (topic) {
+    const {namespace} = this._options
+    return namespace ? `${namespace}.${topic}` : topic
   }
 }
 

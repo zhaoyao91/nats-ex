@@ -208,3 +208,44 @@ describe('NatsEx', () => {
     firstMessageId = natsEx.call('e1').requestId
   })
 })
+
+describe('NatsEx with namespace', () => {
+  let natsEx = null
+
+  beforeEach(async () => {
+    natsEx = await connect({
+      logNatsEvents: false,
+      logMessageEvents: false,
+      logMessageErrors: false,
+      namespace: 'ns'
+    })
+  })
+
+  afterEach(async () => {
+    await natsEx.close()
+    natsEx = null
+  })
+
+  it('should emit message with namespace', (done) => {
+    natsEx.on('ping', (data, message, topic) => {
+      try {
+        expect(topic).toBe('ns.ping')
+        done()
+      }
+      catch (err) {
+        done(err)
+      }
+    })
+    natsEx.emit('ping')
+  })
+
+  it('should call action with namespace', async () => {
+    expect.assertions(2)
+    natsEx.on('ping', async (data, message, topic) => {
+      expect(topic).toBe('ns.ping')
+      return 'pong'
+    })
+    const result = await natsEx.call('ping')
+    expect(result).toBe('pong')
+  })
+})
